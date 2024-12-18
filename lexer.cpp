@@ -1,53 +1,56 @@
 #include "lexer.h"
 #include <cctype>
-#include <iostream>
 
-Lexer::Lexer(const std::string& src) : source(src), position(0) {}
+Lexer::Lexer(const std::string& source) : source(source), position(0) {}
 
-char Lexer::peek() const {
-    return position < source.size() ? source[position] : '\0';
-}
-
-char Lexer::advance() {
-    return source[position++];
-}
-
-void Lexer::skipWhitespace() {
-    while (isspace(peek())) advance();
-}
-
-Token Lexer::parseNumber() {
-    std::string value;
-    while (isdigit(peek())) value += advance();
-    return {TokenType::NUMBER, value};
-}
-
-Token Lexer::parseIdentifier() {
-    std::string value;
-    while (isalnum(peek())) value += advance();
-    if (value == "let" || value == "if" || value == "else") {
-        return {TokenType::KEYWORD, value};
-    }
-    return {TokenType::IDENTIFIER, value};
-}
-
-std::vector<Token> Lexer::tokenize() {
-    std::vector<Token> tokens;
+Token Lexer::nextToken() {
     while (position < source.size()) {
-        skipWhitespace();
-        if (isdigit(peek())) {
-            tokens.push_back(parseNumber());
-        } else if (isalpha(peek())) {
-            tokens.push_back(parseIdentifier());
-        } else {
-            tokens.push_back({TokenType::SYMBOL, std::string(1, advance())});
+        char current = source[position];
+
+        if (isspace(current)) {
+            position++;
+            continue;
+        }
+
+        if (isalpha(current)) {
+            return identifier();
+        }
+
+        if (isdigit(current)) {
+            return number();
+        }
+
+        switch (current) {
+            case '+': position++; return {TokenType::PLUS, "+"};
+            case '-': position++; return {TokenType::MINUS, "-"};
+            case '<': position++; return {TokenType::LESS, "<"};
+            case '=': position++; return {TokenType::ASSIGN, "="}; // Handle assignment
+            case '{': position++; return {TokenType::LBRACE, "{"};
+            case '}': position++; return {TokenType::RBRACE, "}"};
+            case ';': position++; return {TokenType::SEMICOLON, ";"};
+            default:
+                throw std::runtime_error("Unexpected character: " + std::string(1, current));
         }
     }
-    tokens.push_back({TokenType::END_OF_FILE, ""});
+    return {TokenType::END, ""};
+}
 
-    for (const auto& token : tokens) {
-        std::cout << "Token: Type=" << static_cast<int>(token.type) << ", Value=" << token.value << std::endl;
+Token Lexer::identifier() {
+    size_t start = position;
+    while (position < source.size() && isalnum(source[position])) {
+        position++;
     }
+    std::string id = source.substr(start, position - start);
+    if (id == "let") return {TokenType::LET, id};
+    if (id == "if") return {TokenType::IF, id};
+    if (id == "else") return {TokenType::ELSE, id};
+    return {TokenType::IDENTIFIER, id};
+}
 
-    return tokens;
+Token Lexer::number() {
+    size_t start = position;
+    while (position < source.size() && isdigit(source[position])) {
+        position++;
+    }
+    return {TokenType::NUMBER, source.substr(start, position - start)};
 }

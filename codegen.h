@@ -1,18 +1,16 @@
-#ifndef CODEGEN_H
-#define CODEGEN_H
+#ifndef ASSEMBLY_GENERATOR_H
+#define ASSEMBLY_GENERATOR_H
 
 #include "parser.h"
-#include <vector>
-#include <string>
+#include <ostream>
 
-class CodeGen {
+class AssemblyGenerator {
 public:
-    explicit CodeGen(std::unique_ptr<ASTNode> ast);
-    std::vector<std::string> generateAssembly();
+    explicit AssemblyGenerator(std::ostream& output) : output(output) {}
+    void generate(const ASTNode& node);
 
 private:
-    std::unique_ptr<ASTNode> ast;
-    void traverseAST(ASTNode* node, std::vector<std::string>& instructions);
+    std::ostream& output; 
 };
 
-#endif
+#endif 

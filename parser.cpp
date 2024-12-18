@@ -1,100 +1,115 @@
 #include "parser.h"
 #include <stdexcept>
-#include <iostream>
 
-Parser::Parser(const std::vector<Token>& toks) : tokens(toks), position(0) {}
 
-const Token& Parser::current() const {
-    return tokens[position];
+LetNode::LetNode(const std::string& id, std::unique_ptr<ASTNode> val)
+    : identifier(id), value(std::move(val)) {}
+
+NumberNode::NumberNode(int val) : value(val) {}
+
+IfNode::IfNode(std::unique_ptr<ASTNode> cond,
+               std::unique_ptr<ASTNode> thenBranch,
+               std::unique_ptr<ASTNode> elseBranch)
+    : condition(std::move(cond)),
+      thenBranch(std::move(thenBranch)),
+      elseBranch(std::move(elseBranch)) {}
+
+BinaryOpNode::BinaryOpNode(std::unique_ptr<ASTNode> left,
+                           const std::string& op,
+                           std::unique_ptr<ASTNode> right)
+    : left(std::move(left)), op(op), right(std::move(right)) {}
+
+Parser::Parser(Lexer& lexer) : lexer(lexer), currentToken(lexer.nextToken()) {}
+
+Token Parser::getCurrentToken() const {
+    return currentToken;
 }
 
-void Parser::advance() {
-    if (position < tokens.size()) position++;
-}
-
-std::unique_ptr<ASTNode> Parser::parsePrimary() {
-    std::cout << "Parsing Primary: " << current().value << std::endl;
-    if (current().type == TokenType::NUMBER) {
-        auto node = std::make_unique<NumberNode>(std::stoi(current().value));
-        advance();
-        return node;
+void Parser::consume(TokenType type) {
+    if (currentToken.type == type) {
+        currentToken = lexer.nextToken();
+    } else {
+        throw std::runtime_error("Unexpected token: " + currentToken.value);
     }
-    throw std::runtime_error("Unexpected token in Primary: " + current().value);
 }
 
-std::unique_ptr<ASTNode> Parser::parseExpression() {
-    std::cout << "Parsing Expression: " << current().value << std::endl;
-    auto left = parsePrimary();
-    while (current().type == TokenType::SYMBOL && (current().value == "+" || current().value == "-")) {
-        std::string op = current().value;
-        std::cout << "Found operator: " << op << std::endl;
-        advance();
-        auto right = parsePrimary();
-        left = std::make_unique<BinaryOpNode>(op, std::move(left), std::move(right));
+std::unique_ptr<ASTNode> Parser::primary() {
+    if (currentToken.type == TokenType::NUMBER) {
+        int numValue = std::stoi(currentToken.value);
+        consume(TokenType::NUMBER);
+        return std::make_unique<NumberNode>(numValue);
+    }
+    if (currentToken.type == TokenType::IDENTIFIER) {
+        std::string id = currentToken.value;
+        consume(TokenType::IDENTIFIER);
+        return std::make_unique<LetNode>(id, nullptr); // Placeholder for variable
+    }
+    throw std::runtime_error("Unexpected token in primary: " + currentToken.value);
+}
+
+std::unique_ptr<ASTNode> Parser::comparison() {
+    auto left = primary();
+    if (currentToken.type == TokenType::LESS) {
+        consume(TokenType::LESS);
+        auto right = primary();
+        return std::make_unique<BinaryOpNode>(std::move(left), "<", std::move(right));
     }
     return left;
 }
 
-std::unique_ptr<ASTNode> Parser::parseConditional() {
-    std::cout << "Parsing Conditional: " << current().value << std::endl;
-    if (current().value == "if") {
-        advance();
-        auto condition = parseExpression();
-        if (current().value != "{") {
-            throw std::runtime_error("Expected '{' after if condition, found: " + current().value);
+std::unique_ptr<ASTNode> Parser::expression() {
+    auto left = comparison();
+    while (currentToken.type == TokenType::PLUS || currentToken.type == TokenType::MINUS) {
+        std::string op = currentToken.value;
+        if (currentToken.type == TokenType::PLUS) {
+            consume(TokenType::PLUS);
+        } else if (currentToken.type == TokenType::MINUS) {
+            consume(TokenType::MINUS);
         }
-        advance();
-        std::vector<std::unique_ptr<ASTNode>> thenBranch;
-        while (current().value != "}") {
-            std::cout << "Parsing Then Branch: " << current().value << std::endl;
-            thenBranch.push_back(parseExpression());
-        }
-        advance();
-        std::vector<std::unique_ptr<ASTNode>> elseBranch;
-        if (current().value == "else") {
-            advance();
-            if (current().value != "{") {
-                throw std::runtime_error("Expected '{' after else, found: " + current().value);
-            }
-            advance();
-            while (current().value != "}") {
-                std::cout << "Parsing Else Branch: " << current().value << std::endl;
-                elseBranch.push_back(parseExpression());
-            }
-            advance();
-        }
-        return std::make_unique<ConditionalNode>(ConditionalNode{
-            std::move(condition),
-            std::move(thenBranch),
-            std::move(elseBranch)
-        });
+        auto right = comparison();
+        left = std::make_unique<BinaryOpNode>(std::move(left), op, std::move(right));
     }
-    throw std::runtime_error("Unexpected token in Conditional: " + current().value);
+    return left;
 }
 
+// Main parse function
 std::unique_ptr<ASTNode> Parser::parse() {
-    std::cout << "Parsing Token: " << current().value << std::endl;
-
-    if (current().type == TokenType::KEYWORD && current().value == "let") {
-        advance(); // Skip "let"
-        if (current().type != TokenType::IDENTIFIER) {
-            throw std::runtime_error("Expected variable name after 'let'");
+    if (currentToken.type == TokenType::LET) {
+        consume(TokenType::LET);
+        if (currentToken.type != TokenType::IDENTIFIER) {
+            throw std::runtime_error("Expected identifier");
         }
-        std::string varName = current().value;
-        advance(); 
-        if (current().value != "=") {
-            throw std::runtime_error("Expected '=' after variable name");
+        std::string id = currentToken.value;
+        consume(TokenType::IDENTIFIER);
+        consume(TokenType::ASSIGN);
+        auto value = expression();
+        consume(TokenType::SEMICOLON);
+        return std::make_unique<LetNode>(id, std::move(value));
+    } else if (currentToken.type == TokenType::IF) {
+        consume(TokenType::IF);
+        auto condition = expression();
+        consume(TokenType::LBRACE);
+        auto thenBranch = parse();
+        consume(TokenType::RBRACE);
+        std::unique_ptr<ASTNode> elseBranch = nullptr;
+        if (currentToken.type == TokenType::ELSE) {
+            consume(TokenType::ELSE);
+            consume(TokenType::LBRACE);
+            elseBranch = parse();
+            consume(TokenType::RBRACE);
         }
-        advance(); 
-        auto value = parseExpression();
-        std::cout << "Parsed variable declaration: " << varName << std::endl;
-        return value; 
+        return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    } else if (currentToken.type == TokenType::IDENTIFIER) {
+        std::string id = currentToken.value;
+        consume(TokenType::IDENTIFIER);
+        if (currentToken.type == TokenType::ASSIGN) {
+            consume(TokenType::ASSIGN);
+            auto value = expression();
+            consume(TokenType::SEMICOLON);
+            return std::make_unique<LetNode>(id, std::move(value));
+        } else {
+            throw std::runtime_error("Unexpected token after identifier: " + currentToken.value);
+        }
     }
-
-    if (current().type == TokenType::KEYWORD && current().value == "if") {
-        return parseConditional();
-    }
-
-    return parseExpression();
+    throw std::runtime_error("Unexpected token in parse: " + currentToken.value);
 }
-

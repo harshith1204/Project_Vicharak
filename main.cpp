@@ -1,42 +1,53 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
-#include <fstream>
-#include <iostream>
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: ./compiler <input.simplelang>" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: ./simplelang <input_file.simplelang> <output_file.asm>\n";
         return 1;
     }
 
-    std::ifstream inputFile(argv[1]);
-    if (!inputFile) {
-        std::cerr << "Error: Unable to open file " << argv[1] << std::endl;
+    const char* inputFileName = argv[1];
+    const char* outputFileName = argv[2];
+
+    std::ifstream inputFile(inputFileName);
+    if (!inputFile.is_open()) {
+        std::cerr << "Could not open the input file.\n";
         return 1;
     }
 
-    std::string sourceCode((std::istreambuf_iterator<char>(inputFile)),
-                           std::istreambuf_iterator<char>());
-
-    Lexer lexer(sourceCode);
-    auto tokens = lexer.tokenize();
-
-    Parser parser(tokens);
-    auto ast = parser.parse();
-
-    CodeGen codegen(std::move(ast));
-    auto assembly = codegen.generateAssembly();
-
-    std::ofstream asmFile("output.asm");
-    if (!asmFile) {
-        std::cerr << "Error: Unable to create output.asm" << std::endl;
+    std::ofstream outputFile(outputFileName);
+    if (!outputFile.is_open()) {
+        std::cerr << "Could not open the output file.\n";
         return 1;
     }
-    for (const auto& line : assembly) {
-        asmFile << line << std::endl;
+
+    std::stringstream buffer;
+    buffer << inputFile.rdbuf();
+    inputFile.close();
+
+    Lexer lexer(buffer.str());
+    Parser parser(lexer);
+    AssemblyGenerator generator(outputFile); 
+
+    try {
+        while (true) {
+            auto ast = parser.parse();
+            generator.generate(*ast);
+
+            if (parser.getCurrentToken().type == TokenType::END) {
+                break;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return 1;
     }
 
-    std::cout << "Assembly generated in output.asm" << std::endl;
+    outputFile.close();
     return 0;
 }

@@ -3,54 +3,72 @@
 
 #include "lexer.h"
 #include <memory>
-#include <vector>
+#include <string>
 
-struct ASTNode {
+// Abstract Syntax Tree (AST) Node Base Class
+class ASTNode {
+public:
     virtual ~ASTNode() = default;
 };
 
-struct NumberNode : public ASTNode {
-    int value;
-    NumberNode(int val) : value(val) {}
+// AST Node for variable declarations and assignments
+class LetNode : public ASTNode {
+public:
+    std::string identifier;
+    std::unique_ptr<ASTNode> value;
+
+    LetNode(const std::string& id, std::unique_ptr<ASTNode> val);
 };
 
-struct BinaryOpNode : public ASTNode {
-    std::string op;
+// AST Node for numeric literals
+class NumberNode : public ASTNode {
+public:
+    int value;
+
+    NumberNode(int val);
+};
+
+// AST Node for "if-else" statements
+class IfNode : public ASTNode {
+public:
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> thenBranch;
+    std::unique_ptr<ASTNode> elseBranch;
+
+    IfNode(std::unique_ptr<ASTNode> cond,
+           std::unique_ptr<ASTNode> thenBranch,
+           std::unique_ptr<ASTNode> elseBranch);
+};
+
+// AST Node for binary operations
+class BinaryOpNode : public ASTNode {
+public:
     std::unique_ptr<ASTNode> left;
+    std::string op; // Operator (e.g., "+", "-", "<")
     std::unique_ptr<ASTNode> right;
 
-    BinaryOpNode(std::string o, std::unique_ptr<ASTNode> l, std::unique_ptr<ASTNode> r)
-        : op(std::move(o)), left(std::move(l)), right(std::move(r)) {}
+    BinaryOpNode(std::unique_ptr<ASTNode> left,
+                 const std::string& op,
+                 std::unique_ptr<ASTNode> right);
 };
 
-struct ConditionalNode : public ASTNode {
-    std::unique_ptr<ASTNode> condition;
-    std::vector<std::unique_ptr<ASTNode>> thenBranch;
-    std::vector<std::unique_ptr<ASTNode>> elseBranch;
-
-    ConditionalNode(std::unique_ptr<ASTNode> cond,
-                    std::vector<std::unique_ptr<ASTNode>> thenBr,
-                    std::vector<std::unique_ptr<ASTNode>> elseBr)
-        : condition(std::move(cond)),
-          thenBranch(std::move(thenBr)),
-          elseBranch(std::move(elseBr)) {}
-};
-
+// Parser class
 class Parser {
 public:
-    explicit Parser(const std::vector<Token>& tokens);
-    std::unique_ptr<ASTNode> parse();
+    Parser(Lexer& lexer);
+    std::unique_ptr<ASTNode> parse(); // Parse the input and return an AST
+
+    // Expose the current token for checking purposes
+    Token getCurrentToken() const;
 
 private:
-    const std::vector<Token>& tokens;
-    size_t position;
+    Lexer& lexer;
+    Token currentToken; // Tracks the current token being processed
 
-    const Token& current() const;
-    void advance();
-
-    std::unique_ptr<ASTNode> parsePrimary();
-    std::unique_ptr<ASTNode> parseExpression();
-    std::unique_ptr<ASTNode> parseConditional();
+    void consume(TokenType type); // Consume the current token and move to the next one
+    std::unique_ptr<ASTNode> primary(); // Parse primary expressions (numbers, identifiers)
+    std::unique_ptr<ASTNode> comparison(); // Parse comparison expressions
+    std::unique_ptr<ASTNode> expression(); // Parse binary operations
 };
 
-#endif
+#endif // PARSER_H

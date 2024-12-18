@@ -1,40 +1,40 @@
 #include "codegen.h"
 #include <iostream>
 
-CodeGen::CodeGen(std::unique_ptr<ASTNode> astNode) : ast(std::move(astNode)) {}
-
-std::vector<std::string> CodeGen::generateAssembly() {
-    std::vector<std::string> instructions;
-    traverseAST(ast.get(), instructions);
-    for (const auto& instr : instructions) {
-        std::cout << "Generated Assembly: " << instr << std::endl;
-    }
-    return instructions;
-}
-
-void CodeGen::traverseAST(ASTNode* node, std::vector<std::string>& instructions) {
-    if (auto num = dynamic_cast<NumberNode*>(node)) {
-        instructions.push_back("ldi A " + std::to_string(num->value));
-    } else if (auto binOp = dynamic_cast<BinaryOpNode*>(node)) {
-        traverseAST(binOp->left.get(), instructions);
-        instructions.push_back("push A");
-        traverseAST(binOp->right.get(), instructions);
-        instructions.push_back("pop B");
-        if (binOp->op == "+") instructions.push_back("add");
-        else if (binOp->op == "-") instructions.push_back("sub");
-    } else if (auto cond = dynamic_cast<ConditionalNode*>(node)) {
-        std::string elseLabel = "ELSE_LABEL";
-        std::string endLabel = "END_LABEL";
-        traverseAST(cond->condition.get(), instructions);
-        instructions.push_back("jnc " + elseLabel);
-        for (const auto& stmt : cond->thenBranch) {
-            traverseAST(stmt.get(), instructions);
+void AssemblyGenerator::generate(const ASTNode& node) {
+    if (const LetNode* letNode = dynamic_cast<const LetNode*>(&node)) {
+        if (const NumberNode* numNode = dynamic_cast<const NumberNode*>(letNode->value.get())) {
+            output << "ldi r0 " << numNode->value << "\n"; 
+            output << "sta " << letNode->identifier << "\n"; 
+        } else if (const BinaryOpNode* binOp = dynamic_cast<const BinaryOpNode*>(letNode->value.get())) {
+            generate(*binOp->left);
+            output << "push r0\n"; 
+            generate(*binOp->right);
+            output << "pop r1\n"; 
+            if (binOp->op == "+") {
+                output << "add r0 r1\n"; 
+            } else if (binOp->op == "-") {
+                output << "sub r0 r1\n"; 
+            }
+            output << "sta " << letNode->identifier << "\n"; 
         }
-        instructions.push_back("jmp " + endLabel);
-        instructions.push_back(elseLabel + ":");
-        for (const auto& stmt : cond->elseBranch) {
-            traverseAST(stmt.get(), instructions);
+    } else if (const IfNode* ifNode = dynamic_cast<const IfNode*>(&node)) {
+        generate(*ifNode->condition); 
+        output << "jmp_if_less THEN_LABEL\n"; 
+        generate(*ifNode->elseBranch);
+        output << "jmp END_LABEL\n";
+        output << "THEN_LABEL:\n";
+        generate(*ifNode->thenBranch);
+        output << "END_LABEL:\n";
+    } else if (const BinaryOpNode* binOp = dynamic_cast<const BinaryOpNode*>(&node)) {
+        generate(*binOp->left);
+        output << "push r0\n";
+        generate(*binOp->right);
+        output << "pop r1\n";
+        if (binOp->op == "+") {
+            output << "add r0 r1\n";
+        } else if (binOp->op == "-") {
+            output << "sub r0 r1\n";
         }
-        instructions.push_back(endLabel + ":");
     }
 }

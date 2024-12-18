@@ -2,14 +2,11 @@
 #define LEXER_H
 
 #include <string>
-#include <vector>
+#include <stdexcept>
 
 enum class TokenType {
-    IDENTIFIER,
-    KEYWORD,
-    NUMBER,
-    SYMBOL,
-    END_OF_FILE
+    LET, IDENTIFIER, NUMBER, PLUS, MINUS, LESS, ASSIGN, IF, ELSE,
+    LBRACE, RBRACE, SEMICOLON, END
 };
 
 struct Token {
@@ -19,18 +16,15 @@ struct Token {
 
 class Lexer {
 public:
-    explicit Lexer(const std::string& source);
-    std::vector<Token> tokenize();
+    Lexer(const std::string& source);
+    Token nextToken();
 
 private:
     std::string source;
     size_t position;
 
-    char peek() const;
-    char advance();
-    void skipWhitespace();
-    Token parseNumber();
-    Token parseIdentifier();
+    Token identifier();
+    Token number();
 };
 
-#endif
+#endif 
