@@ -42,7 +42,7 @@ std::unique_ptr<ASTNode> Parser::primary() {
     if (currentToken.type == TokenType::IDENTIFIER) {
         std::string id = currentToken.value;
         consume(TokenType::IDENTIFIER);
-        return std::make_unique<LetNode>(id, nullptr); // Placeholder for variable
+        return std::make_unique<LetNode>(id, nullptr); 
     }
     throw std::runtime_error("Unexpected token in primary: " + currentToken.value);
 }
@@ -72,7 +72,6 @@ std::unique_ptr<ASTNode> Parser::expression() {
     return left;
 }
 
-// Main parse function
 std::unique_ptr<ASTNode> Parser::parse() {
     if (currentToken.type == TokenType::LET) {
         consume(TokenType::LET);
