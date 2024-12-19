@@ -5,13 +5,11 @@
 #include <memory>
 #include <string>
 
-// Abstract Syntax Tree (AST) Node Base Class
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
 };
 
-// AST Node for variable declarations and assignments
 class LetNode : public ASTNode {
 public:
     std::string identifier;
@@ -20,7 +18,6 @@ public:
     LetNode(const std::string& id, std::unique_ptr<ASTNode> val);
 };
 
-// AST Node for numeric literals
 class NumberNode : public ASTNode {
 public:
     int value;
@@ -28,7 +25,6 @@ public:
     NumberNode(int val);
 };
 
-// AST Node for "if-else" statements
 class IfNode : public ASTNode {
 public:
     std::unique_ptr<ASTNode> condition;
@@ -40,11 +36,10 @@ public:
            std::unique_ptr<ASTNode> elseBranch);
 };
 
-// AST Node for binary operations
 class BinaryOpNode : public ASTNode {
 public:
     std::unique_ptr<ASTNode> left;
-    std::string op; // Operator (e.g., "+", "-", "<")
+    std::string op; 
     std::unique_ptr<ASTNode> right;
 
     BinaryOpNode(std::unique_ptr<ASTNode> left,
@@ -52,23 +47,22 @@ public:
                  std::unique_ptr<ASTNode> right);
 };
 
-// Parser class
+
 class Parser {
 public:
     Parser(Lexer& lexer);
-    std::unique_ptr<ASTNode> parse(); // Parse the input and return an AST
+    std::unique_ptr<ASTNode> parse(); 
 
-    // Expose the current token for checking purposes
     Token getCurrentToken() const;
 
 private:
     Lexer& lexer;
-    Token currentToken; // Tracks the current token being processed
+    Token currentToken; 
 
-    void consume(TokenType type); // Consume the current token and move to the next one
-    std::unique_ptr<ASTNode> primary(); // Parse primary expressions (numbers, identifiers)
-    std::unique_ptr<ASTNode> comparison(); // Parse comparison expressions
-    std::unique_ptr<ASTNode> expression(); // Parse binary operations
+    void consume(TokenType type); 
+    std::unique_ptr<ASTNode> primary(); 
+    std::unique_ptr<ASTNode> comparison();
+    std::unique_ptr<ASTNode> expression();
 };
 
-#endif // PARSER_H
+#endif 
