@@ -24,7 +24,7 @@ Token Lexer::nextToken() {
             case '+': position++; return {TokenType::PLUS, "+"};
             case '-': position++; return {TokenType::MINUS, "-"};
             case '<': position++; return {TokenType::LESS, "<"};
-            case '=': position++; return {TokenType::ASSIGN, "="}; // Handle assignment
+            case '=': position++; return {TokenType::ASSIGN, "="};
             case '{': position++; return {TokenType::LBRACE, "{"};
             case '}': position++; return {TokenType::RBRACE, "}"};
             case ';': position++; return {TokenType::SEMICOLON, ";"};
